@@ -106,7 +106,7 @@ h1 {
   background: transparent; border: 0; color: var(--gold); cursor: pointer; touch-action: manipulation;
 }
 .step button:hover, .step button:active, .step button:focus-visible { color: var(--ink); }
-.step button[disabled] { visibility: hidden; }
+.step button[disabled] { opacity: 0.25; cursor: default; }   /* faint, not hidden: the row stays centered and still at 1 */
 
 /* The figure, in green. Its room is held open until a ZIP is in. */
 #money {
