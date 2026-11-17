@@ -95,19 +95,8 @@ if (typeof document !== 'undefined') {
 if (typeof document !== 'undefined') {
   const el = (tag, text, cls) => Object.assign(document.createElement(tag), { textContent: text, className: cls || '' });
 
-  // A small gold pixel sword pointing right: pommel, grip, crossguard, long blade, tapered point.
-  const sword = () => {
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 13 5');
-    svg.setAttribute('class', 'sword');
-    for (const [x, y, w, h] of [[0, 1, 1, 3], [1, 2, 2, 1], [3, 0, 1, 5], [4, 1, 7, 3], [11, 2, 2, 1]]) {
-      const r = document.createElementNS(ns, 'rect');
-      for (const [k, v] of Object.entries({ x, y, width: w, height: h })) r.setAttribute(k, v);
-      svg.append(r);
-    }
-    return svg;
-  };
+  // The crossed swords ⚔, in gold. U+FE0E asks for the plain text glyph, not a coloured emoji.
+  const sword = () => el('span', '⚔︎', 'sword');
 
   // Which ZIPs run on the tape: config.tapeZips first (Utah and Colorado may share a first digit),
   // then the busiest measured ZIP for each first digit not yet used, so the country shows wide.

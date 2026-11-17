@@ -54,7 +54,7 @@ input, button, output, a, textarea { font: inherit; color: inherit; }
 #tape b { font-weight: normal; color: var(--ink); }
 #tape .bed { color: var(--bed); } #tape .bath { color: var(--bath); }
 #tape em { font-style: normal; color: var(--dim); opacity: 0.8; }
-#tape .sword { width: 1.3em; height: 0.5em; vertical-align: 0.15em; fill: var(--gold); shape-rendering: crispEdges; }
+#tape .sword { font-size: 1.3em; line-height: 0; vertical-align: -0.05em; color: var(--gold); font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif; }
 @keyframes tape { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { #tape .run { animation: none; } }
 
