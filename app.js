@@ -1,5 +1,5 @@
 // ZIP, bedrooms, bathrooms in. One figure out. Nothing leaves the browser.
-import config from './config.js?v=20261117d';
+import config from './config.js?v=20261117e';
 
 const limits = { beds: [1, 6], baths: [1, 6] };
 const state = { beds: 1, baths: 1 };
@@ -56,23 +56,11 @@ if (typeof document !== 'undefined') {
       step.querySelector('[data-by="-1"]').disabled = state[key] <= low;
       step.querySelector('[data-by="1"]').disabled = state[key] >= high;
     }
-    // Until the ZIP is whole, the figure's room shows a green $ and dashes; then it fills, and follows every tap.
+    // Until the ZIP is whole, the figure shows a green "$–"; then it fills, and follows every tap.
     const zip = $('zip').value;
-    const unit = document.createElement('span');
     const figure = zip.length === 5 ? ownerMonthly({ address: zip, ...state }, config) : null;
     $('money').classList.toggle('waiting', figure === null);
-    if (figure === null) {
-      unit.textContent = 'a month';
-      $('money').replaceChildren('$–', unit);
-      return;
-    }
-    const rate = rateFor({ address: zip, ...state }, config);
-    const homes = `${rate.n.toLocaleString('en-US')} home${rate.n === 1 ? '' : 's'} like yours`;
-    unit.textContent = config.sample ? 'a month · sample'
-      : rate.scope === 'zip' ? `a month · from ${homes} nearby`
-      : rate.scope === 'region' ? `a month · from ${homes} in ${rate.name}`
-      : `a month · from ${homes} across the US`;
-    $('money').replaceChildren(`$${figure.toLocaleString('en-US')}`, unit);
+    $('money').textContent = figure === null ? '$–' : `$${figure.toLocaleString('en-US')}`;
   };
 
   for (const button of document.querySelectorAll('.step button')) {
@@ -107,13 +95,13 @@ if (typeof document !== 'undefined') {
 if (typeof document !== 'undefined') {
   const el = (tag, text, cls) => Object.assign(document.createElement(tag), { textContent: text, className: cls || '' });
 
-  // A small gold pixel sword, point up: the house mark in place of a trader's triangle.
+  // A small gold pixel sword pointing right: pommel, grip, crossguard, long blade, tapered point.
   const sword = () => {
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 5 9');
+    svg.setAttribute('viewBox', '0 0 13 5');
     svg.setAttribute('class', 'sword');
-    for (const [x, y, w, h] of [[2, 0, 1, 5], [0, 5, 5, 1], [2, 6, 1, 2], [1, 8, 3, 1]]) {
+    for (const [x, y, w, h] of [[0, 1, 1, 3], [1, 2, 2, 1], [3, 0, 1, 5], [4, 1, 7, 3], [11, 2, 2, 1]]) {
       const r = document.createElementNS(ns, 'rect');
       for (const [k, v] of Object.entries({ x, y, width: w, height: h })) r.setAttribute(k, v);
       svg.append(r);
@@ -121,15 +109,17 @@ if (typeof document !== 'undefined') {
     return svg;
   };
 
-  // Which ZIPs run on the tape: the ones named in config.tapeZips first (Utah, Hawaii, 81326 ...),
-  // then the busiest measured ZIP of every region in the data. Three bed-bath pairs each.
-  // A figure not measured in that ZIP itself says where it came from: its region, or "US".
+  // Which ZIPs run on the tape: config.tapeZips first (Utah and Colorado may share a first digit),
+  // then the busiest measured ZIP for each first digit not yet used, so the country shows wide.
   const featured = config.tapeZips || [];
+  const used = new Set(featured.filter((z) => !/^8[01]|^84/.test(z)).map((z) => z[0]));
+  used.add('8');   // 8 belongs to Utah and Colorado
   const busiest = new Map();
   for (const a of config.areas) {
-    if (a.zips.length && a.in && (!busiest.has(a.in) || a.n > busiest.get(a.in).n)) busiest.set(a.in, a);
+    const z = a.zips[0];
+    if (z && !used.has(z[0]) && (!busiest.has(z[0]) || a.n > busiest.get(z[0]).n)) busiest.set(z[0], a);
   }
-  const zips = [...new Set([...featured, ...[...busiest.values()].map((a) => a.zips[0])])];
+  const zips = [...new Set([...featured, ...[...busiest.keys()].sort().map((d) => busiest.get(d).zips[0])])];
   const pairs = [[1, 1], [2, 1], [3, 2]];
   const marks = [];
   for (const zip of config.sample ? ['ANY ZIP'] : zips) {
@@ -138,9 +128,8 @@ if (typeof document !== 'undefined') {
       const rate = rateFor({ address, beds, baths }, config);
       const figure = ownerMonthly({ address, beds, baths }, config);
       if (!rate || figure === null) continue;
-      const where = config.sample || rate.scope === 'zip' ? '' : rate.scope === 'region' ? ` ${rate.name}` : ' US';
       marks.push([el('b', zip), '  ', el('span', `${beds} BD`, 'bed'), ' ', el('span', `${baths} BA`, 'bath'), ' ', sword(),
-        ` $${figure.toLocaleString('en-US')}/MO`, ...(where ? [el('em', where)] : [])]);
+        ` $${figure.toLocaleString('en-US')}/MO`]);
     }
   }
   if (config.sample) marks.push(['SAMPLE RATES']);
