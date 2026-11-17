@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#f3f2ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a1120" media="(prefers-color-scheme: dark)">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="description" content="Have a furnished rental home or space you're not using? Let us turn it into money.">
+<title>Refuge and Resort</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="tape" aria-hidden="true"></div>
+<main>
+  <h1>Refuge and Resort</h1>
+  <p id="line">Have a furnished rental home or space you&rsquo;re not using? Let us turn it into money.</p>
+
+  <div id="ask">
+    <input id="zip" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="ZIP code" aria-label="ZIP code" autocomplete="postal-code" spellcheck="false">
+    <div id="rooms">
+      <span class="step" data-for="beds">
+        <button type="button" data-by="-1" aria-label="One fewer bedroom">&lsaquo;</button>
+        <output id="beds">3</output>
+        <button type="button" data-by="1" aria-label="One more bedroom">&rsaquo;</button>
+        <span class="noun">bed</span>
+      </span>
+      <span class="step" data-for="baths">
+        <button type="button" data-by="-1" aria-label="One fewer bathroom">&lsaquo;</button>
+        <output id="baths">2</output>
+        <button type="button" data-by="1" aria-label="One more bathroom">&rsaquo;</button>
+        <span class="noun">bath</span>
+      </span>
+    </div>
+  </div>
+
+  <p id="money" aria-live="polite"></p>
+
+  <div id="reach">
+    <button type="button" id="contact">Contact us</button>
+    <a href="mailto:Levi@refugeandresort.com">Levi@refugeandresort.com</a>
+  </div>
+</main>
+
+<dialog id="letter" aria-labelledby="letter-title">
+  <form id="letter-form" method="dialog">
+    <h2 id="letter-title">Write to us</h2>
+    <input id="from" type="email" placeholder="Your email" aria-label="Your email" autocomplete="email" required>
+    <textarea id="words" rows="5" placeholder="Your message" aria-label="Your message" required></textarea>
+    <div class="row">
+      <button type="button" id="close">Close</button>
+      <button type="submit" id="send">Send</button>
+    </div>
+  </form>
+</dialog>
+
+<footer>Refuge and Resort&trade; 2026</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>
