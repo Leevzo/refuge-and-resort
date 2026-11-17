@@ -95,8 +95,8 @@ if (typeof document !== 'undefined') {
 if (typeof document !== 'undefined') {
   const el = (tag, text, cls) => Object.assign(document.createElement(tag), { textContent: text, className: cls || '' });
 
-  // The crossed swords ⚔, in gold. U+FE0E asks for the plain text glyph, not a coloured emoji.
-  const sword = () => el('span', '⚔︎', 'sword');
+  // The house mark on the tape: ⟢ (U+27E2), in gold.
+  const sword = () => el('span', '⟢', 'sword');
 
   // Which ZIPs run on the tape: config.tapeZips first (Utah and Colorado may share a first digit),
   // then the busiest measured ZIP for each first digit not yet used, so the country shows wide.
