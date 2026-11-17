@@ -2,7 +2,7 @@
 import config from './config.js';
 
 const limits = { beds: [1, 6], baths: [1, 6] };
-const state = { beds: 3, baths: 2 };
+const state = { beds: 1, baths: 1 };
 
 // The area whose zips hold the last five-digit number in the address; else the catch-all (zips: []).
 export function areaFor(address, areas) {
