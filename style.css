@@ -14,7 +14,7 @@
   --dim:   #7a8199;  /* slate */
   --gold:  #faa512;  /* the shadow under the name, buttons, the swords */
   --bed:   #ff6b57;  /* vibrant salmon, for bed */
-  --bath:  #2fa58c;  /* teal-green, for bath */
+  --bath:  #ff6b57;  /* same salmon as bed */
   --pale:  #6b98bf;  /* pale blue, the trade under the name */
   --money: #17804f;  /* the figure only */
   color-scheme: light;
@@ -24,7 +24,7 @@
   --body: clamp(18px, 2.2vw, 26px);   /* one size for every word under the name */
 }
 @media (prefers-color-scheme: dark) {
-  :root { --paper: #0a1120; --ink: #ecebe4; --dim: #8790a8; --money: #5ad394; --bed: #ff7b66; --bath: #45c2a6; --pale: #b9d7ee; color-scheme: dark; }
+  :root { --paper: #0a1120; --ink: #ecebe4; --dim: #8790a8; --money: #5ad394; --bed: #ff7b66; --bath: #ff7b66; --pale: #b9d7ee; color-scheme: dark; }
 }
 
 * { box-sizing: border-box; }
