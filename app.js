@@ -1,5 +1,5 @@
 // ZIP, bedrooms, bathrooms in. One figure out. Nothing leaves the browser.
-import config from './config.js';
+import config from './config.js?v=20261117';
 
 const limits = { beds: [1, 6], baths: [1, 6] };
 const state = { beds: 1, baths: 1 };
@@ -72,11 +72,18 @@ if (typeof document !== 'undefined') {
 // The tape: what each size of home earns, read from config.js, run along the top like a trading floor.
 if (typeof document !== 'undefined') {
   const el = (tag, text) => Object.assign(document.createElement(tag), { textContent: text });
-  const rates = config.areas.find((a) => !a.zips.length)?.rates || {};
-  const marks = Object.keys(rates).map((beds) => {
-    const figure = ownerMonthly({ address: '', beds: Number(beds), baths: 1 }, config);
-    return figure === null ? null : [el('b', `${beds} BED`), ' ', el('i', '▲'), ` $${figure.toLocaleString('en-US')}/MO`];
-  }).filter(Boolean);
+  // Every area in config.js × every bed and bath pair it has a rate for: "97201  2 BD 1 BA ▲ $1,500/MO".
+  // An area with ZIPs shows its first ZIP; the catch-all shows "ANY ZIP".
+  const marks = [];
+  for (const area of config.areas) {
+    const zip = area.zips[0] || 'ANY ZIP';
+    for (const beds of Object.keys(area.rates).map(Number).slice(0, 4)) {
+      for (const baths of [1, 2].filter((b) => b <= beds)) {
+        const figure = ownerMonthly({ address: area.zips[0] || '', beds, baths }, config);
+        if (figure !== null) marks.push([el('b', zip), `  ${beds} BD ${baths} BA `, el('i', '▲'), ` $${figure.toLocaleString('en-US')}/MO`]);
+      }
+    }
+  }
   if (config.sample) marks.push(['SAMPLE RATES']);
   marks.push([el('b', 'REFUGE AND RESORT')]);
   const run = document.createElement('span');

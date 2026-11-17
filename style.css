@@ -74,8 +74,7 @@ h1 {
 
 #kind { margin-top: var(--s4); font-size: 0.78em; letter-spacing: 0.32em; margin-right: -0.32em; text-transform: uppercase; color: var(--ink); }
 
-#line { max-width: 24em; margin-top: var(--gap); color: var(--dim); text-wrap: balance; }
-#line span { display: block; margin-top: var(--s2); color: var(--ink); }
+#line { max-width: 30em; margin-top: var(--gap); color: var(--dim); text-wrap: balance; }
 
 /* The analyzer: ZIP on one line, bed and bath beneath it. */
 #ask {
