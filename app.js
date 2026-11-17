@@ -1,24 +1,35 @@
 // ZIP, bedrooms, bathrooms in. One figure out. Nothing leaves the browser.
-import config from './config.js?v=20261117';
+import config from './config.js?v=20261117b';
 
 const limits = { beds: [1, 6], baths: [1, 6] };
 const state = { beds: 1, baths: 1 };
 
-// The area whose zips hold the last five-digit number in the address; else the catch-all (zips: []).
+// The area for the last five-digit number in the address: the ZIP's own area first, then a general
+// area whose prefixes the ZIP starts with, then a catch-all with neither. null when none fits.
 export function areaFor(address, areas) {
   const zip = (address.match(/\b\d{5}\b/g) || []).pop() || '';
-  return areas.find((a) => a.zips.includes(zip)) || areas.find((a) => !a.zips.length) || null;
+  return areas.find((a) => a.zips.includes(zip))
+    || (zip && areas.find((a) => (a.prefixes || []).some((p) => zip.startsWith(p))))
+    || areas.find((a) => !a.zips.length && !a.prefixes)
+    || null;
 }
 
-// Monthly to the owner = nightly × 30 × occupancy × (1 − cut), rounded to roundTo. null when no rate fits.
-export function ownerMonthly({ address, beds, baths }, cfg) {
+// The rate for beds and baths: a real "beds-baths" entry ({ monthly, n, scope }), else a sample
+// per-bed entry ({ nightly, occupancy }). null when nothing fits.
+export function rateFor({ address, beds, baths }, cfg) {
   const area = areaFor(address, cfg.areas);
-  const rate = area && area.rates[beds];
+  return (area && (area.rates[`${beds}-${baths}`] || area.rates[beds])) || null;
+}
+
+// Monthly to the owner = what the home takes in a month × (1 − cut), rounded to roundTo.
+export function ownerMonthly({ address, beds, baths }, cfg) {
+  const rate = rateFor({ address, beds, baths }, cfg);
   if (!rate) return null;
-  const nightly = rate.nightly + (cfg.bathStep || 0) * Math.max(0, baths - 1);
-  const keeps = nightly * 30 * rate.occupancy * (1 - cfg.cut);
+  const takes = rate.monthly != null
+    ? rate.monthly
+    : (rate.nightly + (cfg.bathStep || 0) * Math.max(0, baths - 1)) * 30 * rate.occupancy;
   const step = cfg.roundTo || 1;
-  return Math.round(keeps / step) * step;
+  return Math.round((takes * (1 - cfg.cut)) / step) * step;
 }
 
 if (typeof document !== 'undefined') {
@@ -34,10 +45,18 @@ if (typeof document !== 'undefined') {
     }
     // The figure waits for a whole ZIP; until then its room stays empty.
     const zip = $('zip').value;
-    const figure = zip.length === 5 ? ownerMonthly({ address: zip, ...state }, config) : null;
-    if (figure === null) { $('money').replaceChildren(); return; }
+    if (zip.length < 5) { $('money').replaceChildren(); return; }
     const unit = document.createElement('span');
-    unit.textContent = config.sample ? 'a month · sample' : 'a month';
+    const figure = ownerMonthly({ address: zip, ...state }, config);
+    if (figure === null) {
+      unit.textContent = 'We are not in your area yet. Write to us.';
+      $('money').replaceChildren(unit);
+      return;
+    }
+    const rate = rateFor({ address: zip, ...state }, config);
+    unit.textContent = config.sample ? 'a month · sample'
+      : rate.scope === 'city' ? `a month · from ${rate.n} homes like yours in Denver`
+      : `a month · from ${rate.n} homes like yours nearby`;
     $('money').replaceChildren(`$${figure.toLocaleString('en-US')}`, unit);
   };
 
@@ -72,16 +91,18 @@ if (typeof document !== 'undefined') {
 // The tape: what each size of home earns, read from config.js, run along the top like a trading floor.
 if (typeof document !== 'undefined') {
   const el = (tag, text) => Object.assign(document.createElement(tag), { textContent: text });
-  // Every area in config.js × every bed and bath pair it has a rate for: "97201  2 BD 1 BA ▲ $1,500/MO".
-  // An area with ZIPs shows its first ZIP; the catch-all shows "ANY ZIP".
+  // Each ZIP × the common bed and bath pairs: "80211  2 BD 1 BA ▲ $2,500/MO".
+  // Real data: only pairs measured in that ZIP itself (scope "zip"). Sample data: "ANY ZIP".
+  const pairs = [[1, 1], [2, 1], [2, 2], [3, 2], [4, 2], [4, 3]];
   const marks = [];
   for (const area of config.areas) {
+    if (!area.zips.length && !config.sample) continue;
     const zip = area.zips[0] || 'ANY ZIP';
-    for (const beds of Object.keys(area.rates).map(Number).slice(0, 4)) {
-      for (const baths of [1, 2].filter((b) => b <= beds)) {
-        const figure = ownerMonthly({ address: area.zips[0] || '', beds, baths }, config);
-        if (figure !== null) marks.push([el('b', zip), `  ${beds} BD ${baths} BA `, el('i', '▲'), ` $${figure.toLocaleString('en-US')}/MO`]);
-      }
+    for (const [beds, baths] of pairs) {
+      const rate = rateFor({ address: area.zips[0] || '', beds, baths }, config);
+      if (!rate || (!config.sample && rate.scope !== 'zip')) continue;
+      const figure = ownerMonthly({ address: area.zips[0] || '', beds, baths }, config);
+      marks.push([el('b', zip), `  ${beds} BD ${baths} BA `, el('i', '▲'), ` $${figure.toLocaleString('en-US')}/MO`]);
     }
   }
   if (config.sample) marks.push(['SAMPLE RATES']);
@@ -91,5 +112,6 @@ if (typeof document !== 'undefined') {
   for (let half = 0; half < 4; half++) {   // equal copies, so the loop at -50% is seamless
     for (const mark of marks) run.append(...mark.map((m) => (typeof m === 'string' ? m : m.cloneNode(true))), '   ·   ');
   }
+  run.style.animationDuration = `${Math.max(60, marks.length * 4)}s`;   // a steady pace however long the tape
   document.getElementById('tape').append(run);
 }
