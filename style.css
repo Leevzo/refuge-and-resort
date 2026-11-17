@@ -1,29 +1,27 @@
-/* Refuge and Resort — bone paper, deep navy ink, teal under the name,
-   amber for anything you press, green for the money. Everything centered. No squares.
-   Spacing is one golden ladder (each rung × 1.618): */
+/* Refuge and Resort — bone paper, deep navy ink, gold for the shadow and anything you press,
+   green for the money. Everything centered. No squares.
+   Spacing is one golden ladder (each rung × 1.618). */
 @font-face { font-family: "Pixelta"; src: url("fonts/pixelta.ttf") format("truetype"); font-display: swap; }
 @font-face { font-family: "W95FA"; src: url("fonts/w95fa.otf") format("opentype"); font-display: swap; }
 
 :root {
   --s1: 6px; --s2: 10px; --s3: 16px; --s4: 26px; --s5: 42px; --s6: 68px; --s7: 110px;
+  --gap: clamp(var(--s5), 7vw, var(--s6));     /* between parts: 42 on a phone, 68 on a desk */
+  --wide: clamp(var(--s6), 11vw, var(--s7));   /* the long breath: 68 on a phone, 110 on a desk */
 
-  --paper:  #f3f2ec;  /* bone */
-  --ink:    #0c1428;  /* deep navy */
-  --dim:    #7a8199;  /* slate */
-  --teal:   #2a9d96;  /* the shadow under the name */
-  --amber:  #faa512;  /* buttons */
-  --money:  #17804f;  /* the figure only */
+  --paper: #f3f2ec;  /* bone */
+  --ink:   #0c1428;  /* deep navy */
+  --dim:   #7a8199;  /* slate */
+  --gold:  #faa512;  /* the shadow under the name, and buttons */
+  --money: #17804f;  /* the figure only */
   color-scheme: light;
 
-  --gutter: clamp(var(--s3), 4.72vw, var(--s6));
+  --gutter: clamp(var(--s4), 4.72vw, var(--s6));
   --measure: calc(100vw - 2 * var(--gutter));
-  --body: clamp(20px, 2.4vw, 28px);   /* one size for every word under the name */
+  --body: clamp(18px, 2.2vw, 26px);   /* one size for every word under the name */
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #0a1120; --ink: #ecebe4; --dim: #8790a8; --teal: #1f8a84; --money: #5ad394;
-    color-scheme: dark;
-  }
+  :root { --paper: #0a1120; --ink: #ecebe4; --dim: #8790a8; --money: #5ad394; color-scheme: dark; }
 }
 
 * { box-sizing: border-box; }
@@ -31,107 +29,119 @@ html, body { margin: 0; background: var(--paper); color: var(--ink); }
 body {
   min-height: 100vh; min-height: 100svh;
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  font: var(--body)/1.3 "W95FA", "MS Sans Serif", Tahoma, Verdana, sans-serif;
+  font: var(--body)/1.5 "W95FA", "MS Sans Serif", Tahoma, Verdana, sans-serif;
   -webkit-text-size-adjust: 100%;
   padding: 0 max(var(--gutter), env(safe-area-inset-right)) max(var(--s4), env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
   overflow-x: hidden;
 }
 h1, h2, p { margin: 0; font-weight: normal; }
 input, button, output, a, textarea { font: inherit; color: inherit; }
-:focus, :focus-visible { outline: none; }   /* no squares: focus shows as amber instead */
+:focus, :focus-visible { outline: none; }   /* no squares: focus shows in colour instead */
 
 /* The tape: the board of the house, running along the top like a 1980s trading floor. */
 #tape {
   align-self: stretch; margin: 0 calc(-1 * max(var(--gutter), env(safe-area-inset-left)));
   padding: max(var(--s3), env(safe-area-inset-top)) 0 var(--s3);
   overflow: hidden; white-space: pre;
-  font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
+  font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
 #tape .run { display: inline-block; animation: tape 60s linear infinite; }
 #tape b { font-weight: normal; color: var(--ink); }
-#tape i { font-style: normal; color: var(--amber); }
+#tape i { font-style: normal; color: var(--gold); }
 @keyframes tape { to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { #tape .run { animation: none; } }
 
 main {
   flex: 1; width: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: var(--s4) 0;
+  padding: var(--wide) 0;
 }
 
-/* The name: one line, across the top, as wide as the window allows. */
+/* The name. Wide screens: one line, "Refuge and Resort" is 6.4em wide.
+   Narrow screens: two lines, "Refuge and" / "Resort", 3.7em wide and 2.29em tall (as measured):
+   width to height is the golden ratio (3.7 / 1.618 = 2.29 ≈ 2 lines × 1.2, measured 322 × 199). */
 h1 {
   font: min(calc(var(--measure) / 6.7), 150px) / 1 "Pixelta", "W95FA", sans-serif;
   white-space: nowrap;
-  text-shadow: 0.05em 0.05em 0 var(--teal);
+  text-shadow: 0.03em 0.03em 0 var(--gold);
+}
+@media (max-width: 700px) {
+  h1 { font-size: calc(var(--measure) / 3.9); line-height: 1.2; }
+  h1 span { display: block; }
 }
 
-#line { max-width: 30em; margin-top: var(--s4); color: var(--dim); letter-spacing: 0.02em; text-wrap: balance; }
+#kind { margin-top: var(--s4); font-size: 0.78em; letter-spacing: 0.32em; margin-right: -0.32em; text-transform: uppercase; color: var(--ink); }
+
+#line { max-width: 24em; margin-top: var(--gap); color: var(--dim); text-wrap: balance; }
+#line span { display: block; margin-top: var(--s2); color: var(--ink); }
 
 /* The analyzer: ZIP on one line, bed and bath beneath it. */
 #ask {
-  display: flex; flex-direction: column; align-items: center; gap: var(--s3);
-  margin-top: var(--s5);
+  display: flex; flex-direction: column; align-items: center; gap: var(--s4);
+  margin-top: var(--gap);
   font: calc(var(--body) * 1.35) / 1.2 "Pixelta", "W95FA", sans-serif;   /* Pixelta runs small; ×1.35 reads the same size as the line */
 }
 #zip {
-  width: 6em; text-align: center; font-variant-numeric: tabular-nums;
+  width: 7em; text-align: center; font-variant-numeric: tabular-nums;
   background: transparent; border: 0; border-radius: 0; padding: 0; outline: none; box-shadow: none;
-  appearance: none; -webkit-appearance: none; caret-color: var(--amber);
+  appearance: none; -webkit-appearance: none; caret-color: var(--gold);
 }
 #zip::placeholder { color: var(--dim); opacity: 0.7; }
 #zip:focus::placeholder { color: transparent; }
 
-#rooms { display: flex; justify-content: center; gap: var(--s5); }
+#rooms { display: flex; justify-content: center; gap: var(--gap); }
 .step { display: inline-flex; align-items: center; }
 .step output { min-width: 1ch; font-variant-numeric: tabular-nums; }
-.step .noun { margin-left: var(--s1); color: var(--dim); }
+.step .noun { margin-left: var(--s2); color: var(--dim); }
 .step button {
-  width: 1.1em; height: 1.4em; padding: 0; line-height: 1;
-  background: transparent; border: 0; color: var(--amber); cursor: pointer; touch-action: manipulation;
+  width: 1.2em; height: 1.6em; padding: 0; line-height: 1;
+  background: transparent; border: 0; color: var(--gold); cursor: pointer; touch-action: manipulation;
 }
 .step button:hover, .step button:active, .step button:focus-visible { color: var(--ink); }
 .step button[disabled] { visibility: hidden; }
 
 /* The figure, in green. Its room is held open until a ZIP is in. */
 #money {
-  min-height: 1.618em; margin-top: var(--s5);
+  min-height: 1.618em; margin-top: var(--gap);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   font: clamp(52px, 7vw, 88px) / 1 "Pixelta", "W95FA", sans-serif;
   color: var(--money); font-variant-numeric: tabular-nums;
 }
 #money span { margin-top: var(--s2); font: var(--body) / 1.3 "W95FA", sans-serif; color: var(--dim); letter-spacing: 0.04em; }
 
-/* Contact: the amber button, the address beneath it. */
-#reach { margin-top: var(--s5); display: flex; flex-direction: column; align-items: center; gap: var(--s2); }
-#contact { background: transparent; border: 0; padding: 0; color: var(--amber); cursor: pointer; letter-spacing: 0.04em; }
-#contact:hover, #contact:focus-visible { color: var(--ink); }
-#reach a { color: var(--dim); text-decoration: none; overflow-wrap: anywhere; }
-#reach a:hover, #reach a:focus-visible { color: var(--amber); }
+/* Contact: one button, one line — "Contact us" in gold, the address beside it. */
+#contact {
+  margin-top: var(--gap);
+  display: flex; flex-wrap: wrap; justify-content: center; column-gap: var(--s4); row-gap: var(--s1);
+  background: transparent; border: 0; padding: 0; cursor: pointer; letter-spacing: 0.04em;
+}
+#contact span:first-child { color: var(--gold); }
+#contact .at { color: var(--dim); overflow-wrap: anywhere; }
+#contact:hover span, #contact:focus-visible span { color: var(--ink); }
 
 /* The letter: words floating on a blurred, darkened page. No pane, no square. */
 #letter {
   --glass: #f3f2ec;   /* light ink over the dark, both modes */
-  width: min(30em, calc(100vw - 2 * var(--gutter))); max-width: none; padding: 0;
+  width: min(26em, calc(100vw - 2 * var(--gutter))); max-width: none; padding: 0;
   border: 0; background: transparent; color: var(--glass);
 }
 #letter::backdrop { background: rgb(5 9 20 / 0.62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
 #letter[open] { animation: rise 0.2s ease-out; }
 @keyframes rise { from { opacity: 0; transform: translateY(var(--s2)); } }
-#letter form { display: flex; flex-direction: column; gap: var(--s4); text-align: left; }
-#letter h2 { margin-bottom: var(--s3); font: calc(var(--body) * 1.618 * 1.35) / 1 "Pixelta", "W95FA", sans-serif; text-align: center; }
+#letter form { display: flex; flex-direction: column; gap: var(--s5); text-align: left; }
+#letter h2 { font: calc(var(--body) * 1.618 * 1.35) / 1 "Pixelta", "W95FA", sans-serif; text-align: center; text-shadow: 0.03em 0.03em 0 var(--gold); }
 #letter input, #letter textarea {
   width: 100%; padding: var(--s2) 0; background: transparent; border: 0; border-radius: 0; outline: none; resize: none;
-  color: var(--glass); caret-color: var(--amber);
+  color: var(--glass); caret-color: var(--gold);
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--glass) 35%, transparent);
 }
-#letter input:focus, #letter textarea:focus { box-shadow: inset 0 -2px 0 var(--amber); }
+#letter input:focus, #letter textarea:focus { box-shadow: inset 0 -2px 0 var(--gold); }
 #letter input::placeholder, #letter textarea::placeholder { color: color-mix(in srgb, var(--glass) 55%, transparent); }
-#letter .row { display: flex; justify-content: space-between; margin-top: var(--s2); }
+#letter .row { display: flex; justify-content: space-between; }
 #letter .row button { background: transparent; border: 0; padding: 0; cursor: pointer; color: color-mix(in srgb, var(--glass) 65%, transparent); }
-#letter #send { color: var(--amber); }
+#letter #send { color: var(--gold); }
 #letter .row button:hover, #letter .row button:focus-visible { color: var(--glass); }
 
 /* The mark, small, in the bottom corner. */
