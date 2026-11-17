@@ -1,5 +1,5 @@
 // ZIP, bedrooms, bathrooms in. One figure out. Nothing leaves the browser.
-import config from './config.js?v=20261117c';
+import config from './config.js?v=20261117d';
 
 const limits = { beds: [1, 6], baths: [1, 6] };
 const state = { beds: 1, baths: 1 };
@@ -16,14 +16,14 @@ export function areaFor(address, areas) {
     || null;
 }
 
-// Walk down the ladder: this ZIP (beds-baths, then beds), its region, then the whole US.
+// Walk down the ladder: this ZIP (beds-baths, then beds), its region, its state, then the whole US.
 // Returns { monthly, n, scope: 'zip' | 'region' | 'wide', name }, or a sample { nightly, occupancy, ... }.
 export function rateFor({ address, beds, baths }, cfg) {
   const zip = zipOf(address);
   const own = cfg.areas.find((a) => a.zips.includes(zip));
-  const region = zip && cfg.areas.find((a) => (a.prefixes || []).some((p) => zip.startsWith(p)));
+  const around = zip ? cfg.areas.filter((a) => (a.prefixes || []).some((p) => zip.startsWith(p))) : [];
   const wide = cfg.areas.find((a) => !a.zips.length && !a.prefixes);
-  for (const [area, scope] of [[own, 'zip'], [region, 'region'], [wide, 'wide']]) {
+  for (const [area, scope] of [[own, 'zip'], ...around.map((a) => [a, 'region']), [wide, 'wide']]) {
     if (!area) continue;
     for (const key of [`${beds}-${baths}`, String(beds)]) {
       const r = area.rates[key];
@@ -62,8 +62,8 @@ if (typeof document !== 'undefined') {
     const figure = zip.length === 5 ? ownerMonthly({ address: zip, ...state }, config) : null;
     $('money').classList.toggle('waiting', figure === null);
     if (figure === null) {
-      unit.textContent = zip.length === 5 ? 'We are not in your area yet. Write to us.' : 'a month';
-      $('money').replaceChildren('$–,–––', unit);
+      unit.textContent = 'a month';
+      $('money').replaceChildren('$–', unit);
       return;
     }
     const rate = rateFor({ address: zip, ...state }, config);

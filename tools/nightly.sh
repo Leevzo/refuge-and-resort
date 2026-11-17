@@ -10,8 +10,8 @@ if git diff --quiet -- rates.js; then
   echo "rates.js unchanged; nothing to publish."
   exit 0
 fi
-node --test >/dev/null 2>&1 || { echo "Tests failed; not publishing."; git checkout -- rates.js; exit 1; }
-git add rates.js
+node --test >/dev/null 2>&1 || { echo "Tests failed; not publishing."; git checkout -- rates.js config.js; exit 1; }
+git add rates.js config.js
 git commit --quiet -m "Rates: $(date '+%Y-%m-%d') from Inside Airbnb"
 git push --quiet
 echo "Published new rates."

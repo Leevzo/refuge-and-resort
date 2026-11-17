@@ -5,7 +5,7 @@
 // The page shows what the owner keeps: that × (1 − cut), rounded to roundTo.
 //
 // If rates.js is ever empty, the made-up sample table below is used and the figure says "sample".
-import rates from './rates.js';
+import rates from './rates.js?v=9d93fc3cfe';
 
 export const sampleAreas = [
   {

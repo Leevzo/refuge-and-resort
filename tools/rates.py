@@ -17,7 +17,7 @@ What it does, in order:
 
 Standard library only. Downloads are cached in tools/.cache/ (git-ignored).
 """
-import argparse, csv, gzip, io, json, math, re, statistics, sys, urllib.request, zipfile
+import argparse, csv, gzip, hashlib, io, json, math, re, statistics, sys, urllib.request, zipfile
 from datetime import date
 from pathlib import Path
 
@@ -138,6 +138,18 @@ def add(g, b, ba, m):
     g['all'] += 1
 
 
+# First three ZIP digits of each state we have data for, so any ZIP in that state gets the state figure.
+STATES = {
+    'ca': ('California', [(900, 961)]), 'co': ('Colorado', [(800, 816)]), 'ct': ('Connecticut', [(60, 69)]),
+    'dc': ('DC', [(200, 205)]), 'fl': ('Florida', [(320, 349)]), 'hi': ('Hawaii', [(967, 968)]),
+    'il': ('Illinois', [(600, 629)]), 'la': ('Louisiana', [(700, 714)]), 'ma': ('Massachusetts', [(10, 27)]),
+    'mn': ('Minnesota', [(550, 567)]), 'mt': ('Montana', [(590, 599)]), 'nc': ('North Carolina', [(270, 289)]),
+    'nj': ('New Jersey', [(70, 89)]), 'nv': ('Nevada', [(889, 898)]), 'ny': ('New York', [(100, 149)]),
+    'oh': ('Ohio', [(430, 459)]), 'or': ('Oregon', [(970, 979)]), 'ri': ('Rhode Island', [(28, 29)]),
+    'tn': ('Tennessee', [(370, 385)]), 'tx': ('Texas', [(750, 799), (885, 885)]), 'wa': ('Washington', [(980, 994)]),
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', default='', help='comma list like co/denver,hi/hawaii; default every US area')
@@ -147,7 +159,7 @@ def main():
     found = us_areas()
     wanted = [x.strip() for x in a.only.split(',') if x.strip()] or sorted(found)
     zips = Zips()
-    by_zip, by_area, nation, used = {}, {}, empty(), []
+    by_zip, by_area, by_state, nation, used = {}, {}, {}, empty(), []
     for area in wanted:
         if area not in found:
             print(f'skip {area}: not on Inside Airbnb'); continue
@@ -158,6 +170,7 @@ def main():
         prefixes = set()
         for z, b, ba, m in homes(raw, zips):
             add(by_zip.setdefault(z, empty()), b, ba, m); add(g, b, ba, m); add(nation, b, ba, m)
+            add(by_state.setdefault(area.split('/')[0], empty()), b, ba, m)
             by_zip[z]['area'] = area
             prefixes.add(z[:3]); count += 1
         g['prefixes'] = prefixes
@@ -172,6 +185,11 @@ def main():
     for area, g in sorted(by_area.items(), key=lambda kv: -kv[1]['all']):
         if g['all'] >= MIN:
             areas.append({'zips': [], 'name': pretty(area), 'prefixes': sorted(g['prefixes']), 'rates': table(g)})
+    for st, g in sorted(by_state.items()):
+        if g['all'] >= MIN and st in STATES:
+            name, spans = STATES[st]
+            prefixes = [f'{p:03d}' for lo, hi in spans for p in range(lo, hi + 1)]
+            areas.append({'zips': [], 'name': name, 'state': True, 'prefixes': prefixes, 'rates': table(g)})
     areas.append({'zips': [], 'name': 'the US', 'national': True, 'rates': table(nation)})
     if nation['all'] < MIN:
         sys.exit('Too little data came out; rates.js left as it was.')
@@ -187,6 +205,10 @@ def main():
         print('No change.')
         return
     out.write_text(text)
+    # Stamp the import in config.js with this data's fingerprint, so no browser pairs new code with old numbers.
+    cfg = ROOT / 'config.js'
+    stamp = hashlib.sha1(text.encode()).hexdigest()[:10]
+    cfg.write_text(re.sub(r"from '\./rates\.js(\?v=[0-9a-f]+)?';", f"from './rates.js?v={stamp}';", cfg.read_text()))
     print(f'Wrote {out.name}: {sum(1 for x in areas if x["zips"])} ZIPs, {len(used)} areas, {nation["all"]} homes, {len(text)//1024} KB.')
 
 
