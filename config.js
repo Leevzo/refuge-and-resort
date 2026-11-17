@@ -28,6 +28,9 @@ export default {
   roundTo: 50,
   bathStep: 0,       // sample table only: added to the nightly rate per bathroom past the first
   sample: !real,
+  // ZIPs that always run first on the tape: 84060 Park City, Utah; 96753 Kihei, Maui; 81326 Hesperus, Colorado.
+  // (Utah ZIPs show the US figure, marked US, until there is Utah data. One is enough until then.)
+  tapeZips: ['84060', '96753', '81326'],
   dataDate: real ? rates.data_date : null,
   areas: real ? rates.areas : sampleAreas,
 };

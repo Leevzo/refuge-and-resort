@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""Real monthly earnings by ZIP x bedrooms x bathrooms, from Inside Airbnb's public data.
+"""Real monthly earnings by ZIP x bedrooms x bathrooms, nationwide, from Inside Airbnb's public data.
 
-    python3 -I tools/rates.py                 # Denver (the default city)
-    python3 -I tools/rates.py --city united-states/co/denver --state-zip-prefix 80
+    python3 -I tools/rates.py                       # every US area Inside Airbnb publishes
+    python3 -I tools/rates.py --only co/denver,hi/hawaii
 
 What it does, in order:
- 1. Finds the city's newest listings file on insideairbnb.com/get-the-data (they publish
-    about once a quarter; when nothing is new, nothing changes).
+ 1. Reads insideairbnb.com/get-the-data and takes the newest listings file for every US area
+    (about 35: Hawaii, Denver, Los Angeles, New York, Nashville, Austin, ... ; they refresh
+    about once a quarter. Utah is not among them).
  2. Keeps whole homes that are really operating: earned in the last year, 3+ reviews in it.
- 3. Gives each one the ZIP whose centre (US Census ZCTA file) is nearest to it.
- 4. For each ZIP x beds x baths with at least MIN listings, takes the MEDIAN of
-    estimated_revenue_l365d / 12 (Inside Airbnb's own estimate of a year's revenue).
-    Thin groups fall back to the ZIP x beds, then to the whole city x beds x baths.
- 5. Writes rates.js, which the page reads. Our cut is applied on the page (config.js).
+ 3. Gives each the ZIP whose centre (US Census ZCTA file) is nearest.
+ 4. Medians of estimated_revenue_l365d / 12, each from at least MIN homes, at four levels:
+      ZIP x beds-baths  ->  ZIP x beds  ->  area x beds-baths / beds  ->  whole US x beds-baths / beds
+    The page walks down that ladder and says which level the number came from.
+ 5. Writes rates.js. Our cut is applied on the page (config.js).
 
 Standard library only. Downloads are cached in tools/.cache/ (git-ignored).
 """
@@ -24,15 +25,15 @@ ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / 'tools' / '.cache'
 INDEX = 'https://insideairbnb.com/get-the-data/'
 ZCTA = 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_zcta_national.zip'
-MIN = 10           # listings a group needs before its median is trusted
+MIN = 10           # homes a median needs before it is trusted
 MAX_BEDS, MAX_BATHS = 6, 4
-PREFIXES = ['800', '801', '802']   # Denver metro ZIPs; set with --metro
 AGENT = {'User-Agent': 'refuge-and-resort-rates/1.0'}
+csv.field_size_limit(10_000_000)
 
 
 def fetch(url, dest=None):
     req = urllib.request.Request(url, headers=AGENT)
-    with urllib.request.urlopen(req, timeout=180) as r:
+    with urllib.request.urlopen(req, timeout=600) as r:
         data = r.read()
     if dest:
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -40,31 +41,51 @@ def fetch(url, dest=None):
     return data
 
 
-def newest_listings_url(city):
+def us_areas():
+    """{'co/denver': ('2026-09-25', url), ...}, newest file per area."""
     page = fetch(INDEX).decode('utf-8', 'replace')
-    pat = re.escape(f'https://data.insideairbnb.com/{city}/') + r'(\d{4}-\d{2}-\d{2})/data/listings\.csv\.gz'
-    found = sorted(set(re.findall(pat, page)))
-    if not found:
-        sys.exit(f'No listings file for {city} on {INDEX}')
-    stamp = found[-1]
-    return stamp, f'https://data.insideairbnb.com/{city}/{stamp}/data/listings.csv.gz'
+    found = {}
+    for url, area, stamp in re.findall(
+            r'(https://data\.insideairbnb\.com/united-states/([a-z-]+/[a-z-]+)/(\d{4}-\d{2}-\d{2})/data/listings\.csv\.gz)', page):
+        if area not in found or stamp > found[area][0]:
+            found[area] = (stamp, url)
+    return found
 
 
-def zip_centres(prefix):
-    path = CACHE / 'zcta.zip'
-    if not path.exists():
-        fetch(ZCTA, path)
-    with zipfile.ZipFile(path) as z:
-        text = z.read(z.namelist()[0]).decode('utf-8', 'replace')
-    rows = csv.reader(io.StringIO(text), delimiter='\t')
-    head = [h.strip() for h in next(rows)]
-    gi, la, lo = head.index('GEOID'), head.index('INTPTLAT'), head.index('INTPTLONG')
-    return [(r[gi], float(r[la]), float(r[lo])) for r in rows if r[gi].startswith(prefix)]
+def pretty(area):
+    state, slug = area.split('/')
+    slug = re.sub(rf'-{state}$', '', slug).replace('-msa', '')
+    words = {'dc': 'DC', 'hawaii': 'Hawaii'}
+    return ' '.join(words.get(w, w.capitalize()) for w in slug.split('-'))
 
 
-def nearest_zip(lat, lon, centres):
-    k = math.cos(math.radians(lat))
-    return min(centres, key=lambda c: (c[1] - lat) ** 2 + ((c[2] - lon) * k) ** 2)[0]
+class Zips:
+    """Nearest ZIP centre, bucketed by whole degrees so a lookup checks only nearby centres."""
+    def __init__(self):
+        path = CACHE / 'zcta.zip'
+        if not path.exists():
+            fetch(ZCTA, path)
+        with zipfile.ZipFile(path) as z:
+            text = z.read(z.namelist()[0]).decode('utf-8', 'replace')
+        rows = csv.reader(io.StringIO(text), delimiter='\t')
+        head = [h.strip() for h in next(rows)]
+        gi, la, lo = head.index('GEOID'), head.index('INTPTLAT'), head.index('INTPTLONG')
+        self.cells = {}
+        for r in rows:
+            lat, lon = float(r[la]), float(r[lo])
+            self.cells.setdefault((math.floor(lat), math.floor(lon)), []).append((r[gi], lat, lon))
+
+    def nearest(self, lat, lon):
+        k = math.cos(math.radians(lat))
+        best, dist = None, 1e9
+        cy, cx = math.floor(lat), math.floor(lon)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                for z, zl, zo in self.cells.get((cy + dy, cx + dx), ()):
+                    d = (zl - lat) ** 2 + ((zo - lon) * k) ** 2
+                    if d < dist:
+                        best, dist = z, d
+        return best
 
 
 def number(text):
@@ -74,10 +95,10 @@ def number(text):
         return None
 
 
-def homes(raw, centres):
-    """(zip, beds, baths, monthly) for whole homes that earned in the last year."""
+def homes(raw, zips):
+    """(zip, beds, baths, monthly) for whole homes that are really operating."""
     for row in csv.DictReader(io.StringIO(gzip.decompress(raw).decode('utf-8', 'replace'))):
-        if row.get('room_type') != 'Entire home/apt':
+        if row.get('room_type') != 'Entire home/apt' or (number(row.get('number_of_reviews_ltm')) or 0) < 3:
             continue
         revenue, beds = number(row.get('estimated_revenue_l365d')), number(row.get('bedrooms'))
         baths = number(row.get('bathrooms'))
@@ -85,80 +106,88 @@ def homes(raw, centres):
             m = re.match(r'([\d.]+)', row.get('bathrooms_text') or '')
             baths = number(m.group(1)) if m else None
         lat, lon = number(row.get('latitude')), number(row.get('longitude'))
-        if (number(row.get("number_of_reviews_ltm")) or 0) < 3:
-            continue
         if not revenue or revenue <= 0 or not beds or not baths or lat is None or lon is None:
             continue
-        beds, baths = min(int(beds), MAX_BEDS), min(max(int(baths), 1), MAX_BATHS)
-        yield nearest_zip(lat, lon, centres), beds, baths, revenue / 12
+        z = zips.nearest(lat, lon)
+        if z:
+            yield z, min(int(beds), MAX_BEDS), min(max(int(baths), 1), MAX_BATHS), revenue / 12
 
 
-def build(rows):
-    by = {}
-    for z, b, ba, m in rows:
-        for key in ((z, b, ba), (z, b), ('*', b, ba), ('*', b)):
-            by.setdefault(key, []).append(m)
+def medians(groups):
+    """{key: [monthly, n]} for groups with at least MIN homes."""
+    return {k: [round(statistics.median(v)), len(v)] for k, v in groups.items() if len(v) >= MIN}
 
-    def median(key):
-        vals = by.get(key, [])
-        return (round(statistics.median(vals)), len(vals)) if len(vals) >= MIN else None
 
-    # Each rate says where it came from: "zip" (this ZIP, these beds and baths), "beds" (this ZIP,
-    # these beds, any baths) or "city" (the whole city, these beds and baths).
-    def best(z, b, ba):
-        for key, scope in (((z, b, ba), 'zip'), ((z, b), 'beds'), (('*', b, ba), 'city'), (('*', b), 'city')):
-            hit = median(key)
-            if hit:
-                return {'monthly': hit[0], 'n': hit[1], 'scope': 'city' if z == '*' else scope}
-        return None
+def table(groups):
+    """'b-ba' and 'b' keys -> [monthly, n] for one set of homes."""
+    out = {}
+    for (b, ba), v in medians({(b, ba): v for (b, ba), v in groups['pair'].items()}).items():
+        out[f'{b}-{ba}'] = v
+    for b, v in medians(groups['beds']).items():
+        out[str(b)] = v
+    return out
 
-    def table(z):
-        rates = {}
-        for b in range(1, MAX_BEDS + 1):
-            for ba in range(1, MAX_BATHS + 1):
-                hit = best(z, b, ba)
-                if hit:
-                    rates[f'{b}-{ba}'] = hit
-        return rates
 
-    areas = []
-    for z in sorted({k[0] for k in by if k[0] != '*'}):
-        homes_here = sum(len(by.get((z, b), [])) for b in range(1, MAX_BEDS + 1))
-        if homes_here >= MIN:   # a ZIP with too few homes gets the city figures below, not a guess
-            areas.append({'zips': [z], 'rates': table(z)})
-    # The general area: any other ZIP in the metro starting with these digits gets the city-wide figures.
-    areas.append({'zips': [], 'prefixes': PREFIXES, 'rates': table('*')})
-    return areas
+def empty():
+    return {'pair': {}, 'beds': {}, 'all': 0}
+
+
+def add(g, b, ba, m):
+    g['pair'].setdefault((b, ba), []).append(m)
+    g['beds'].setdefault(b, []).append(m)
+    g['all'] += 1
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--city', default='united-states/co/denver')
-    ap.add_argument('--state-zip-prefix', default='80')
-    ap.add_argument('--metro', default=','.join(PREFIXES), help='ZIP starts that count as this city, e.g. 800,801,802')
+    ap.add_argument('--only', default='', help='comma list like co/denver,hi/hawaii; default every US area')
     ap.add_argument('--out', default=str(ROOT / 'rates.js'))
     a = ap.parse_args()
-    PREFIXES[:] = [p.strip() for p in a.metro.split(',') if p.strip()]
 
-    stamp, url = newest_listings_url(a.city)
-    raw_path = CACHE / f"{a.city.replace('/', '_')}_{stamp}.csv.gz"
-    raw = raw_path.read_bytes() if raw_path.exists() else fetch(url, raw_path)
-    areas = build(homes(raw, zip_centres(a.state_zip_prefix)))
-    if not areas:
-        sys.exit('No areas came out; rates.js left as it was.')
+    found = us_areas()
+    wanted = [x.strip() for x in a.only.split(',') if x.strip()] or sorted(found)
+    zips = Zips()
+    by_zip, by_area, nation, used = {}, {}, empty(), []
+    for area in wanted:
+        if area not in found:
+            print(f'skip {area}: not on Inside Airbnb'); continue
+        stamp, url = found[area]
+        path = CACHE / f"{area.replace('/', '_')}_{stamp}.csv.gz"
+        raw = path.read_bytes() if path.exists() else fetch(url, path)
+        g, count = by_area.setdefault(area, empty()), 0
+        prefixes = set()
+        for z, b, ba, m in homes(raw, zips):
+            add(by_zip.setdefault(z, empty()), b, ba, m); add(g, b, ba, m); add(nation, b, ba, m)
+            by_zip[z]['area'] = area
+            prefixes.add(z[:3]); count += 1
+        g['prefixes'] = prefixes
+        used.append({'area': area, 'name': pretty(area), 'data_date': stamp, 'homes': count})
+        print(f'{area}: {count} homes ({stamp})', flush=True)
 
-    data = {'source': url, 'data_date': stamp, 'built': date.today().isoformat(), 'areas': areas}
+    areas = []
+    for z in sorted(by_zip):
+        g = by_zip[z]
+        if g['all'] >= MIN:
+            areas.append({'zips': [z], 'in': pretty(g['area']), 'n': g['all'], 'rates': table(g)})
+    for area, g in sorted(by_area.items(), key=lambda kv: -kv[1]['all']):
+        if g['all'] >= MIN:
+            areas.append({'zips': [], 'name': pretty(area), 'prefixes': sorted(g['prefixes']), 'rates': table(g)})
+    areas.append({'zips': [], 'name': 'the US', 'national': True, 'rates': table(nation)})
+    if nation['all'] < MIN:
+        sys.exit('Too little data came out; rates.js left as it was.')
+
+    data = {'built': date.today().isoformat(), 'sources': used, 'areas': areas}
     text = ('// Written by tools/rates.py from Inside Airbnb public data. Do not edit by hand.\n'
-            '// monthly = median estimated revenue a month for whole homes in that ZIP with that many beds-baths;\n'
-            '// n = how many real listings that median stands on.\n'
+            '// rates: "beds-baths" or "beds" -> [median monthly revenue of real whole homes, how many homes].\n'
             f'export default {json.dumps(data, separators=(",", ":"))};\n')
     out = Path(a.out)
     old = out.read_text() if out.exists() else ''
-    if re.sub(r'"built": "[^"]*"', '', old) == re.sub(r'"built": "[^"]*"', '', text):
-        print(f'No change ({stamp}).')
+    strip = lambda t: re.sub(r'"built":"[^"]*"', '', t)
+    if strip(old) == strip(text):
+        print('No change.')
         return
     out.write_text(text)
-    print(f'Wrote {out.name}: {len(areas)} ZIPs from {stamp}.')
+    print(f'Wrote {out.name}: {sum(1 for x in areas if x["zips"])} ZIPs, {len(used)} areas, {nation["all"]} homes, {len(text)//1024} KB.')
 
 
 if __name__ == '__main__':
